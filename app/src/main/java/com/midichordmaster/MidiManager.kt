@@ -1,4 +1,4 @@
-package com.chordieapp
+package com.midichordmaster
 
 import android.content.Context
 import android.media.midi.*

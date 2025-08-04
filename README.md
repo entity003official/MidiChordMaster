@@ -1,6 +1,6 @@
-# 🎹 ChordieApp - Android和弦显示应用
+# 🎹 MidiChordMaster - Android和弦显示应用
 
-一个类似Chordie的Android应用，可以实时接收MIDI信号，识别和显示和弦，并播放钢琴音色。
+一个专业的Android MIDI和弦识别应用，可以实时接收MIDI信号，智能识别和显示和弦，并播放高质量钢琴音色。
 
 ![Android](https://img.shields.io/badge/Android-API%2024+-brightgreen)
 ![Kotlin](https://img.shields.io/badge/Kotlin-1.8.20-blue)
@@ -34,14 +34,14 @@
 
 1. **克隆仓库**
    ```bash
-   git clone https://github.com/your-username/ChordieApp.git
-   cd ChordieApp
+   git clone https://github.com/entity003official/MidiChordMaster.git
+   cd MidiChordMaster
    ```
 
 2. **在Android Studio中打开项目**
    - 启动Android Studio
    - 选择 "Open an existing project"
-   - 选择ChordieApp文件夹
+   - 选择MidiChordMaster文件夹
 
 3. **运行应用**
    - 连接Android设备或启动模拟器
@@ -119,7 +119,8 @@ app/src/main/java/com/chordieapp/
 
 ## 📞 联系方式
 
-如有问题或建议，请创建 [Issue](https://github.com/your-username/ChordieApp/issues)。
+如有问题或建议，请创建 [Issue](https://github.com/your-username/```
+MidiChordMaster/issues)。
 
 ---
 

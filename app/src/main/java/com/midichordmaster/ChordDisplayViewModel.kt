@@ -1,4 +1,4 @@
-package com.chordieapp
+package com.midichordmaster
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope

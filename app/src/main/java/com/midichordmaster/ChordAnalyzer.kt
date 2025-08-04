@@ -1,4 +1,4 @@
-package com.chordieapp
+package com.midichordmaster
 
 class ChordAnalyzer {
     

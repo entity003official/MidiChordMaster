@@ -1,4 +1,4 @@
-package com.chordieapp
+package com.midichordmaster
 
 import android.Manifest
 import android.content.pm.PackageManager
@@ -11,7 +11,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
-import com.chordieapp.ui.theme.ChordieAppTheme
+import com.midichordmaster.ui.theme.MidiChordMasterTheme
 
 class MainActivity : ComponentActivity() {
     
@@ -35,7 +35,7 @@ class MainActivity : ComponentActivity() {
         checkPermissions()
         
         setContent {
-            ChordieAppTheme {
+            MidiChordMasterTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background

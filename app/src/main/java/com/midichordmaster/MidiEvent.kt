@@ -1,4 +1,4 @@
-package com.chordieapp
+package com.midichordmaster
 
 data class MidiEvent(
     val type: Type,

@@ -1,4 +1,4 @@
-package com.chordieapp.ui.theme
+package com.midichordmaster.ui.theme
 
 import androidx.compose.ui.graphics.Color
 

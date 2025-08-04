@@ -1,4 +1,4 @@
-package com.chordieapp
+package com.midichordmaster
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -36,7 +36,7 @@ fun ChordDisplayScreen(
     ) {
         // Header
         Text(
-            text = "ChordieApp",
+            text = "MidiChordMaster",
             style = MaterialTheme.typography.headlineLarge,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary

@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">ChordieApp</string>
+    <string name="app_name">MidiChordMaster</string>
     <string name="midi_connection_status">MIDI Connection Status</string>
     <string name="audio_status">Audio Status</string>
     <string name="current_chord">Current Chord</string>

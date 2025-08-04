@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace 'com.chordieapp'
+    namespace 'com.midichordmaster'
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.chordieapp"
+        applicationId "com.midichordmaster"
         minSdk 24
         targetSdk 34
         versionCode 1
