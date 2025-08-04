@@ -1,0 +1,14 @@
+<resources>
+    <string name="app_name">ChordieApp</string>
+    <string name="midi_connection_status">MIDI Connection Status</string>
+    <string name="audio_status">Audio Status</string>
+    <string name="current_chord">Current Chord</string>
+    <string name="no_chord">No Chord</string>
+    <string name="connect_midi">Connect MIDI</string>
+    <string name="test_audio">Test Audio</string>
+    <string name="piano_keys">Piano Keys</string>
+    <string name="midi_connected">MIDI Connected</string>
+    <string name="midi_disconnected">MIDI Disconnected</string>
+    <string name="audio_playing">Audio Playing</string>
+    <string name="audio_stopped">Audio Stopped</string>
+</resources>
