@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.StateFlow
 
 class MidiManager(private val context: Context) {
     
-    private var midiManager: MidiManager? = null
+    private var midiManager: android.media.midi.MidiManager? = null
     private var midiDevice: MidiDevice? = null
     private var inputPort: MidiInputPort? = null
     private var midiListener: ((MidiEvent) -> Unit)? = null
@@ -54,7 +54,7 @@ class MidiManager(private val context: Context) {
     }
     
     init {
-        midiManager = context.getSystemService(Context.MIDI_SERVICE) as? MidiManager
+        midiManager = context.getSystemService(Context.MIDI_SERVICE) as? android.media.midi.MidiManager
     }
     
     fun setMidiListener(listener: (MidiEvent) -> Unit) {
@@ -63,27 +63,29 @@ class MidiManager(private val context: Context) {
     
     suspend fun connectMidi(): Boolean {
         return try {
-            val deviceInfos = midiManager?.devices ?: emptyArray()
-            
-            // Try to connect to the first available MIDI device
+            val manager = midiManager ?: return false
+            val deviceInfos = manager.devices
+
+            // Try to connect to the first available MIDI device with output ports
             for (deviceInfo in deviceInfos) {
-                if (deviceInfo.inputPortCount > 0) {
-                    midiManager?.openDevice(deviceInfo, { device ->
-                        midiDevice = device
-                        inputPort = device.openInputPort(0)
-                        inputPort?.connect(midiReceiver)
-                        _isConnected.value = true
+                if (deviceInfo.outputPortCount > 0) {
+                    manager.openDevice(deviceInfo, { device ->
+                        if (device != null) {
+                            midiDevice = device
+                            val outputPort = device.openOutputPort(0)
+                            outputPort?.connect(midiReceiver)
+                            _isConnected.value = true
+                        }
                     }, Handler(Looper.getMainLooper()))
                     return true
                 }
             }
             
-            // If no external MIDI device, create virtual connection
-            // This would typically connect to other MIDI apps or virtual instruments
+            // If no external MIDI device, mark as connected for virtual use
             _isConnected.value = true
             true
         } catch (e: Exception) {
-            e.printStackTrace()
+            _isConnected.value = false
             false
         }
     }

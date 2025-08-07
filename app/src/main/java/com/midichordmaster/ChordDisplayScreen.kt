@@ -4,7 +4,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
+import androidx.compose.material.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -19,7 +19,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChordDisplayScreen(
     viewModel: ChordDisplayViewModel = viewModel()
@@ -34,28 +33,24 @@ fun ChordDisplayScreen(
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Header
+        // Title
         Text(
-            text = "MidiChordMaster",
-            style = MaterialTheme.typography.headlineLarge,
+            text = "MIDI Chord Master",
+            style = MaterialTheme.typography.h4,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
+            color = MaterialTheme.colors.primary
         )
         
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        // Current Chord Display
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // Current chord display
         Card(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(120.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = if (isPlaying) 
-                    MaterialTheme.colorScheme.primaryContainer 
-                else 
-                    MaterialTheme.colorScheme.surface
-            ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            elevation = 8.dp,
+            backgroundColor = MaterialTheme.colors.surface,
+            shape = RoundedCornerShape(16.dp)
         ) {
             Column(
                 modifier = Modifier
@@ -66,27 +61,36 @@ fun ChordDisplayScreen(
             ) {
                 Text(
                     text = "Current Chord",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                    style = MaterialTheme.typography.subtitle1,
+                    color = MaterialTheme.colors.onSurface
                 )
                 
                 Spacer(modifier = Modifier.height(8.dp))
                 
                 Text(
-                    text = currentChord.ifEmpty { "No Chord" },
-                    style = MaterialTheme.typography.headlineMedium,
+                    text = currentChord ?: "No chord detected",
+                    style = MaterialTheme.typography.h5,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colors.primary
                 )
             }
         }
-        
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Status text
+        Text(
+            text = if (isPlaying) "🎵 Playing" else "⏸️ Ready",
+            style = MaterialTheme.typography.h6,
+            color = MaterialTheme.colors.secondary
+        )
+
         Spacer(modifier = Modifier.height(32.dp))
         
-        // Piano Keys Display
+        // Piano keys display
         Text(
             text = "Piano Keys",
-            style = MaterialTheme.typography.titleLarge,
+            style = MaterialTheme.typography.h6,
             fontWeight = FontWeight.Medium
         )
         
@@ -101,7 +105,7 @@ fun ChordDisplayScreen(
         
         Spacer(modifier = Modifier.height(32.dp))
         
-        // Status and Controls
+        // Status and controls
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly
@@ -123,7 +127,7 @@ fun ChordDisplayScreen(
         
         Spacer(modifier = Modifier.height(24.dp))
         
-        // Control Buttons
+        // Control buttons
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly
@@ -220,8 +224,8 @@ fun StatusIndicator(
         
         Text(
             text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurface
+            style = MaterialTheme.typography.caption,
+            color = MaterialTheme.colors.onSurface
         )
     }
 }

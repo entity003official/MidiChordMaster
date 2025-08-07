@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <usb-device vendor-id="1234" product-id="5678" />
-    <!-- Add more MIDI device vendor/product IDs as needed -->
-    <!-- This is a generic filter, specific devices should be added based on actual hardware -->
-</resources>
+<usb-device vendor-id="1234" product-id="5678" />
+<!-- This is a placeholder USB device filter for MIDI devices -->
+<!-- In a real app, you would specify actual vendor and product IDs for MIDI devices -->
+

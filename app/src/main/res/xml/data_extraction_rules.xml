@@ -1,15 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <data-extraction-rules>
     <cloud-backup>
-        <!-- TODO: Use <include> and <exclude> to control what is backed up.
-        <include .../>
-        <exclude .../>
-        -->
+        <!-- Allow backup of all app data -->
+        <include domain="root" />
+        <include domain="file" />
+        <include domain="database" />
+        <include domain="sharedpref" />
+        <include domain="external" />
     </cloud-backup>
-    <!--
+
     <device-transfer>
-        <include .../>
-        <exclude .../>
+        <!-- Allow transfer of all app data -->
+        <include domain="root" />
+        <include domain="file" />
+        <include domain="database" />
+        <include domain="sharedpref" />
+        <include domain="external" />
     </device-transfer>
-    -->
 </data-extraction-rules>
+

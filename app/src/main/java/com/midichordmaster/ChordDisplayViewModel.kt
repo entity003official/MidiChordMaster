@@ -68,13 +68,23 @@ class ChordDisplayViewModel : ViewModel() {
                     // Update playing status
                     _isPlaying.value = newKeys.isNotEmpty()
                     
-                    // Re-analyze chord
+                    // Re-analyze chord with remaining keys
                     val chord = if (newKeys.isNotEmpty()) {
                         chordAnalyzer?.analyzeChord(newKeys) ?: ""
                     } else {
                         ""
                     }
                     _currentChord.value = chord
+                }
+
+                MidiEvent.Type.CONTROL_CHANGE -> {
+                    // Handle control change messages (sustain pedal, modulation, etc.)
+                    // For now, we can ignore these or add basic handling
+                }
+
+                MidiEvent.Type.PITCH_BEND -> {
+                    // Handle pitch bend messages
+                    // For now, we can ignore these or add basic handling
                 }
             }
         }

@@ -1,0 +1,23 @@
+<!-- Round version of launcher icon -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+
+    <!-- Round background -->
+    <path
+        android:fillColor="@color/purple_500"
+        android:pathData="M24,24m-24,0a24,24 0,1 1,48 0a24,24 0,1 1,-48 0"/>
+
+    <!-- Music note icon -->
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M24,8v18.55c-0.59,-0.34 -1.27,-0.55 -2,-0.55 -2.21,0 -4,1.79 -4,4s1.79,4 4,4 4,-1.79 4,-4V16h6V8h-8z"/>
+
+    <!-- Chord symbol accent -->
+    <path
+        android:fillColor="@color/teal_200"
+        android:pathData="M32,28c0,2.21 -1.79,4 -4,4s-4,-1.79 -4,-4 1.79,-4 4,-4 4,1.79 4,4z"/>
+</vector>
+
