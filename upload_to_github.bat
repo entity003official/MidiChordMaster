@@ -110,31 +110,7 @@ echo ✅ All files added to Git
 
 echo.
 echo [Step 9] Creating initial commit...
-git commit -m "🎉 Initial commit: Professional MIDI Chord Recognition App
-
-✨ Features:
-- Real-time MIDI input processing with Android MIDI API
-- Intelligent chord recognition algorithm
-- Visual piano keyboard with live key indicators
-- Audio synthesis with custom piano sounds
-- Modern Jetpack Compose UI with Material Design 2
-- MVVM architecture with StateFlow reactive programming
-
-🏗️ Tech Stack:
-- Kotlin + Jetpack Compose
-- Android SDK 24-34 (Android 7.0-14)
-- Gradle 7.4.2 + JDK 11
-- Material Design 2 with custom theming
-
-📱 Ready Features:
-- 6.78MB APK ready for installation
-- Complete source code with professional architecture
-- Comprehensive build scripts and documentation
-- Professional UI with purple/teal theme
-- Real-time status indicators and interactive controls
-
-🎵 Perfect for musicians, developers, and music app enthusiasts!"
-
+git commit -m "Initial commit: Professional MIDI Chord Recognition App with real-time processing, intelligent chord recognition, visual piano keyboard, audio synthesis, and modern Jetpack Compose UI. Ready-to-install APK included."
 if %errorlevel% neq 0 (
     echo ❌ Failed to create commit
     pause
