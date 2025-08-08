@@ -173,7 +173,7 @@ MIT License - 详见 [LICENSE](LICENSE) 文件
 
 ## 👨‍💻 作者
 
-- GitHub: [@yourusername](https://github.com/yourusername)
+- GitHub: [@entity003official](https://github.com/entity003official)
 
 ## 📱 应用截图
 
