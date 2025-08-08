@@ -3,6 +3,9 @@ package com.midichordmaster
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.*
 import androidx.compose.runtime.*
@@ -29,6 +32,7 @@ fun ChordDisplayScreen(
     val isPlaying by viewModel.isPlaying.collectAsState()
     val pressedKeys by viewModel.pressedKeys.collectAsState()
     val isMidiConnected by viewModel.isMidiConnected.collectAsState()
+    val debugLogs by viewModel.debugLogs.collectAsState()
 
     Column(
         modifier = Modifier
@@ -138,66 +142,128 @@ fun ChordDisplayScreen(
                     ) {
                         Text(
                             text = if (isMidiConnected) "MIDI Connected" else "Connect MIDI",
-                            color = Color.White
+                            color = Color.White,
+                            fontSize = 12.sp
                         )
                     }
                     
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
                     
                     Button(
                         onClick = { viewModel.testAudio() },
                         modifier = Modifier.weight(1f)
                     ) {
-                        Text("Test Audio")
+                        Text("Test Audio", fontSize = 12.sp)
+                    }
+                    
+                    Spacer(modifier = Modifier.width(4.dp))
+                    
+                    Button(
+                        onClick = { viewModel.getDiagnosticInfo() },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            backgroundColor = MaterialTheme.colors.secondary
+                        )
+                    ) {
+                        Text(
+                            text = "Diagnose",
+                            color = Color.White,
+                            fontSize = 12.sp
+                        )
                     }
                 }
             }
 
-            // Right panel - Visual piano display
+            // Right panel - Debug logs
             Card(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight(),
                 elevation = 4.dp
             ) {
-                Box(
+                Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(16.dp),
-                    contentAlignment = Alignment.Center
+                        .padding(16.dp)
                 ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Piano Visualization",
+                            text = "Debug Logs (Dev Mode)",
                             style = MaterialTheme.typography.h6,
                             color = MaterialTheme.colors.onSurface,
-                            modifier = Modifier.padding(bottom = 16.dp)
+                            fontWeight = FontWeight.Bold
                         )
                         
-                        // Visual piano keyboard (for display only)
-                        VisualPianoKeyboard(
-                            pressedKeys = pressedKeys,
+                        Button(
+                            onClick = { viewModel.clearDebugLogs() },
+                            modifier = Modifier.height(32.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                backgroundColor = MaterialTheme.colors.secondary
+                            )
+                        ) {
+                            Text(
+                                text = "Clear",
+                                fontSize = 12.sp,
+                                color = Color.White
+                            )
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    // Debug logs display
+                    val listState = rememberLazyListState()
+                    
+                    // Auto-scroll to bottom when new logs arrive
+                    LaunchedEffect(debugLogs.size) {
+                        if (debugLogs.isNotEmpty()) {
+                            listState.animateScrollToItem(debugLogs.size - 1)
+                        }
+                    }
+                    
+                    Card(
+                        modifier = Modifier.fillMaxSize(),
+                        backgroundColor = Color.Black,
+                        elevation = 2.dp
+                    ) {
+                        LazyColumn(
+                            state = listState,
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .height(120.dp)
-                        )
-                        
-                        Spacer(modifier = Modifier.height(16.dp))
-                        
-                        Text(
-                            text = if (pressedKeys.isNotEmpty()) {
-                                val sortedNotes = pressedKeys.sorted()
-                                val noteNames = sortedNotes.map { midiNoteToNoteName(it) }
-                                "Notes: ${noteNames.joinToString(" + ")}"
+                                .fillMaxSize()
+                                .padding(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                            if (debugLogs.isEmpty()) {
+                                item {
+                                    Text(
+                                        text = "No debug logs yet...\nTry pressing 'Test Audio' or virtual piano keys",
+                                        color = Color.Gray,
+                                        fontSize = 12.sp,
+                                        modifier = Modifier.padding(8.dp)
+                                    )
+                                }
                             } else {
-                                "Touch piano below or connect MIDI"
-                            },
-                            style = MaterialTheme.typography.body2,
-                            color = MaterialTheme.colors.onSurface.copy(alpha = 0.7f),
-                            textAlign = TextAlign.Center
-                        )
+                                items(debugLogs) { log ->
+                                    Text(
+                                        text = log,
+                                        color = when {
+                                            log.contains("❌") -> Color.Red
+                                            log.contains("✅") -> Color.Green
+                                            log.contains("🔊") || log.contains("🎵") || log.contains("🎹") -> Color.Cyan
+                                            log.contains("🔧") || log.contains("🛑") -> Color.Yellow
+                                            log.contains("🎯") -> Color.Magenta
+                                            else -> Color.White
+                                        },
+                                        fontSize = 10.sp,
+                                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }

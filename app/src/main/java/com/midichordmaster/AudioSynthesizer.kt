@@ -35,6 +35,9 @@ class AudioSynthesizer {
     
     private fun initializeAudio() {
         try {
+            println("DEBUG: Starting AudioSynthesizer initialization...")
+            println("DEBUG: Sample rate: $sampleRate, Buffer size: $bufferSize")
+            
             audioTrack = AudioTrack.Builder()
                 .setAudioAttributes(
                     AudioAttributes.Builder()
@@ -52,12 +55,20 @@ class AudioSynthesizer {
                 .setBufferSizeInBytes(bufferSize * 2)
                 .build()
                 
+            println("DEBUG: AudioTrack created successfully")
+            println("DEBUG: AudioTrack state: ${audioTrack?.state}")
+            println("DEBUG: AudioTrack playback state: ${audioTrack?.playState}")
+            
             audioTrack?.play()
+            println("DEBUG: AudioTrack play() called")
+            println("DEBUG: AudioTrack playback state after play(): ${audioTrack?.playState}")
+            
             startSynthesis()
             isInitialized = true
-            println("DEBUG: AudioSynthesizer initialized successfully")
+            println("SUCCESS: AudioSynthesizer initialized successfully")
         } catch (e: Exception) {
             println("ERROR: Failed to initialize AudioSynthesizer: ${e.message}")
+            println("ERROR: Exception type: ${e.javaClass.simpleName}")
             e.printStackTrace()
             isInitialized = false
         }
@@ -126,8 +137,18 @@ class AudioSynthesizer {
     }
     
     fun playNote(midiNote: Int, velocity: Int) {
+        println("DEBUG: playNote called - note: $midiNote, velocity: $velocity")
+        println("DEBUG: isInitialized: $isInitialized")
+        println("DEBUG: audioTrack state: ${audioTrack?.state}")
+        println("DEBUG: audioTrack playback state: ${audioTrack?.playState}")
+        
         if (!isInitialized) {
             println("WARNING: AudioSynthesizer not initialized, cannot play note $midiNote")
+            return
+        }
+        
+        if (audioTrack == null) {
+            println("ERROR: AudioTrack is null!")
             return
         }
         
@@ -135,9 +156,11 @@ class AudioSynthesizer {
             val frequency = midiNoteToFrequency(midiNote)
             activeNotes[midiNote] = NoteData(frequency, velocity)
             isPlaying = true
-            println("DEBUG: Playing note $midiNote at frequency $frequency Hz")
+            println("SUCCESS: Added note $midiNote at frequency $frequency Hz to active notes")
+            println("DEBUG: Active notes count: ${activeNotes.size}")
         } catch (e: Exception) {
             println("ERROR: Failed to play note $midiNote: ${e.message}")
+            e.printStackTrace()
         }
     }
     
@@ -169,6 +192,21 @@ class AudioSynthesizer {
     private fun midiNoteToFrequency(midiNote: Int): Double {
         // A4 (MIDI note 69) = 440 Hz
         return 440.0 * 2.0.pow((midiNote - 69) / 12.0)
+    }
+    
+    fun getDebugInfo(): String {
+        return buildString {
+            appendLine("AudioSynthesizer Debug Info:")
+            appendLine("- Initialized: $isInitialized")
+            appendLine("- AudioTrack: ${if (audioTrack != null) "Created" else "NULL"}")
+            appendLine("- AudioTrack State: ${audioTrack?.state}")
+            appendLine("- Playback State: ${audioTrack?.playState}")
+            appendLine("- Sample Rate: $sampleRate")
+            appendLine("- Buffer Size: $bufferSize")
+            appendLine("- Active Notes: ${activeNotes.size}")
+            appendLine("- Is Playing: $isPlaying")
+            appendLine("- Synthesis Job: ${if (synthesisJob?.isActive == true) "Running" else "Stopped"}")
+        }
     }
     
     fun release() {
