@@ -14,28 +14,13 @@ class AudioSynthesizer {
         sampleRate,
         AudioFormat.CHANNEL_OUT_MONO,
         AudioFormat.ENCODING_PCM_16BIT
-    )
+    ).coerceAtLeast(1024)
     
-    private val audioTrack = AudioTrack.Builder()
-        .setAudioAttributes(
-            AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_MEDIA)
-                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                .build()
-        )
-        .setAudioFormat(
-            AudioFormat.Builder()
-                .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-                .setSampleRate(sampleRate)
-                .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
-                .build()
-        )
-        .setBufferSizeInBytes(bufferSize * 2)
-        .build()
-    
+    private var audioTrack: AudioTrack? = null
     private val activeNotes = mutableMapOf<Int, NoteData>()
     private var synthesisJob: Job? = null
     private var isPlaying = false
+    private var isInitialized = false
     
     data class NoteData(
         val frequency: Double,
@@ -45,25 +30,59 @@ class AudioSynthesizer {
     )
     
     init {
-        audioTrack.play()
-        startSynthesis()
+        initializeAudio()
+    }
+    
+    private fun initializeAudio() {
+        try {
+            audioTrack = AudioTrack.Builder()
+                .setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                        .build()
+                )
+                .setAudioFormat(
+                    AudioFormat.Builder()
+                        .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                        .setSampleRate(sampleRate)
+                        .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                        .build()
+                )
+                .setBufferSizeInBytes(bufferSize * 2)
+                .build()
+                
+            audioTrack?.play()
+            startSynthesis()
+            isInitialized = true
+            println("DEBUG: AudioSynthesizer initialized successfully")
+        } catch (e: Exception) {
+            println("ERROR: Failed to initialize AudioSynthesizer: ${e.message}")
+            e.printStackTrace()
+            isInitialized = false
+        }
     }
     
     private fun startSynthesis() {
         synthesisJob = CoroutineScope(Dispatchers.Default).launch {
             val buffer = ShortArray(bufferSize)
             
-            while (isActive) {
-                if (activeNotes.isNotEmpty()) {
-                    generateAudioBuffer(buffer)
-                    audioTrack.write(buffer, 0, buffer.size)
-                } else {
-                    // Generate silence when no notes are playing
-                    buffer.fill(0)
-                    audioTrack.write(buffer, 0, buffer.size)
+            while (isActive && isInitialized) {
+                try {
+                    if (activeNotes.isNotEmpty()) {
+                        generateAudioBuffer(buffer)
+                        audioTrack?.write(buffer, 0, buffer.size)
+                    } else {
+                        // Generate silence when no notes are playing
+                        buffer.fill(0)
+                        audioTrack?.write(buffer, 0, buffer.size)
+                    }
+                    
+                    delay(10) // Small delay to prevent excessive CPU usage
+                } catch (e: Exception) {
+                    println("ERROR: Audio synthesis error: ${e.message}")
+                    break
                 }
-                
-                delay(10) // Small delay to prevent excessive CPU usage
             }
         }
     }
@@ -107,15 +126,32 @@ class AudioSynthesizer {
     }
     
     fun playNote(midiNote: Int, velocity: Int) {
-        val frequency = midiNoteToFrequency(midiNote)
-        activeNotes[midiNote] = NoteData(frequency, velocity)
-        isPlaying = true
+        if (!isInitialized) {
+            println("WARNING: AudioSynthesizer not initialized, cannot play note $midiNote")
+            return
+        }
+        
+        try {
+            val frequency = midiNoteToFrequency(midiNote)
+            activeNotes[midiNote] = NoteData(frequency, velocity)
+            isPlaying = true
+            println("DEBUG: Playing note $midiNote at frequency $frequency Hz")
+        } catch (e: Exception) {
+            println("ERROR: Failed to play note $midiNote: ${e.message}")
+        }
     }
     
     fun stopNote(midiNote: Int) {
-        activeNotes.remove(midiNote)
-        if (activeNotes.isEmpty()) {
-            isPlaying = false
+        if (!isInitialized) return
+        
+        try {
+            activeNotes.remove(midiNote)
+            if (activeNotes.isEmpty()) {
+                isPlaying = false
+            }
+            println("DEBUG: Stopped note $midiNote")
+        } catch (e: Exception) {
+            println("ERROR: Failed to stop note $midiNote: ${e.message}")
         }
     }
     
@@ -136,8 +172,14 @@ class AudioSynthesizer {
     }
     
     fun release() {
-        synthesisJob?.cancel()
-        audioTrack.stop()
-        audioTrack.release()
+        try {
+            synthesisJob?.cancel()
+            audioTrack?.stop()
+            audioTrack?.release()
+            isInitialized = false
+            println("DEBUG: AudioSynthesizer released")
+        } catch (e: Exception) {
+            println("ERROR: Failed to release AudioSynthesizer: ${e.message}")
+        }
     }
 }

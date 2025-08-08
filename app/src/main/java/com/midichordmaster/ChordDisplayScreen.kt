@@ -23,7 +23,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 
 @Composable
 fun ChordDisplayScreen(
-    viewModel: ChordDisplayViewModel = (LocalContext.current as MainActivity).getChordDisplayViewModel()
+    viewModel: ChordDisplayViewModel = viewModel()
 ) {
     val currentChord by viewModel.currentChord.collectAsState()
     val isPlaying by viewModel.isPlaying.collectAsState()

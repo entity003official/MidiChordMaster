@@ -2,6 +2,7 @@ package com.midichordmaster
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -40,7 +41,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colors.background
                 ) {
-                    ChordDisplayScreen()
+                    ChordDisplayScreen(viewModel = getChordDisplayViewModel())
                 }
             }
         }
@@ -49,15 +50,16 @@ class MainActivity : ComponentActivity() {
     private fun checkPermissions() {
         val permissionsNeeded = mutableListOf<String>()
         
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) 
-            != PackageManager.PERMISSION_GRANTED) {
-            permissionsNeeded.add(Manifest.permission.BLUETOOTH_CONNECT)
+        // Only request BLUETOOTH_CONNECT for MIDI devices
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) 
+                != PackageManager.PERMISSION_GRANTED) {
+                permissionsNeeded.add(Manifest.permission.BLUETOOTH_CONNECT)
+            }
         }
         
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) 
-            != PackageManager.PERMISSION_GRANTED) {
-            permissionsNeeded.add(Manifest.permission.RECORD_AUDIO)
-        }
+        // No need for RECORD_AUDIO permission for audio playback
+        // AudioTrack doesn't require special permissions for output
         
         if (permissionsNeeded.isNotEmpty()) {
             requestPermissionLauncher.launch(permissionsNeeded.toTypedArray())
@@ -85,14 +87,21 @@ class MainActivity : ComponentActivity() {
     
     // Add method to get ViewModel with initialized components
     fun getChordDisplayViewModel(): ChordDisplayViewModel {
-        val viewModel = ChordDisplayViewModel()
-        midiManager?.let { midi ->
-            audioSynthesizer?.let { audio ->
-                chordAnalyzer?.let { analyzer ->
-                    viewModel.initializeComponents(midi, audio, analyzer)
+        return try {
+            val viewModel = ChordDisplayViewModel()
+            midiManager?.let { midi ->
+                audioSynthesizer?.let { audio ->
+                    chordAnalyzer?.let { analyzer ->
+                        viewModel.initializeComponents(midi, audio, analyzer)
+                        println("DEBUG: ViewModel initialized with components")
+                    }
                 }
             }
+            viewModel
+        } catch (e: Exception) {
+            println("ERROR: Failed to initialize ViewModel: ${e.message}")
+            e.printStackTrace()
+            ChordDisplayViewModel() // Return empty ViewModel as fallback
         }
-        return viewModel
     }
 }
