@@ -2,7 +2,6 @@ package com.midichordmaster
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.MaterialTheme
 import androidx.compose.runtime.*
@@ -35,36 +34,71 @@ fun InteractivePianoKeyboard(
         generatePianoKeys(startOctave, octaveCount)
     }
     
-    var currentTouchedKey by remember { mutableStateOf<Int?>(null) }
+    // Track multiple pressed keys by pointer ID
+    var activeTouches by remember { mutableStateOf<Map<PointerId, Int>>(emptyMap()) }
     
     Box(modifier = modifier.height(keyboardHeight)) {
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
                 .pointerInput(Unit) {
-                    detectDragGestures(
-                        onDragStart = { offset ->
-                            val key = findKeyAtPosition(offset, pianoKeys, size.width.toFloat(), size.height.toFloat())
-                            key?.let { 
-                                onKeyPress(it)
-                                currentTouchedKey = it
-                            }
-                        },
-                        onDragEnd = {
-                            currentTouchedKey?.let { onKeyRelease(it) }
-                            currentTouchedKey = null
-                        },
-                        onDrag = { change, _ ->
-                            val key = findKeyAtPosition(change.position, pianoKeys, size.width.toFloat(), size.height.toFloat())
-                            if (key != currentTouchedKey) {
-                                currentTouchedKey?.let { onKeyRelease(it) }
-                                key?.let { 
-                                    onKeyPress(it)
-                                    currentTouchedKey = it
+                    awaitPointerEventScope {
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            
+                            event.changes.forEach { change ->
+                                val position = change.position
+                                val pointerId = change.id
+                                
+                                when {
+                                    change.pressed && !activeTouches.containsKey(pointerId) -> {
+                                        // New touch down
+                                        val key = findKeyAtPosition(
+                                            position, 
+                                            pianoKeys, 
+                                            size.width.toFloat(), 
+                                            size.height.toFloat()
+                                        )
+                                        key?.let { 
+                                            onKeyPress(it)
+                                            activeTouches = activeTouches + (pointerId to it)
+                                        }
+                                        change.consume()
+                                    }
+                                    !change.pressed && activeTouches.containsKey(pointerId) -> {
+                                        // Touch released
+                                        activeTouches[pointerId]?.let { key ->
+                                            onKeyRelease(key)
+                                        }
+                                        activeTouches = activeTouches - pointerId
+                                        change.consume()
+                                    }
+                                    change.pressed && activeTouches.containsKey(pointerId) -> {
+                                        // Touch moved - check if moved to different key
+                                        val currentKey = findKeyAtPosition(
+                                            position, 
+                                            pianoKeys, 
+                                            size.width.toFloat(), 
+                                            size.height.toFloat()
+                                        )
+                                        val previousKey = activeTouches[pointerId]
+                                        
+                                        if (currentKey != previousKey) {
+                                            // Moved to different key
+                                            previousKey?.let { onKeyRelease(it) }
+                                            currentKey?.let { 
+                                                onKeyPress(it)
+                                                activeTouches = activeTouches + (pointerId to it)
+                                            } ?: run {
+                                                activeTouches = activeTouches - pointerId
+                                            }
+                                        }
+                                        change.consume()
+                                    }
                                 }
                             }
                         }
-                    )
+                    }
                 }
         ) {
             drawPianoKeyboard(

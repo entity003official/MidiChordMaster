@@ -72,8 +72,27 @@ class MainActivity : ComponentActivity() {
         val audioSynthesizer = AudioSynthesizer()
         val chordAnalyzer = ChordAnalyzer()
         
-        // Initialize ViewModel with components
-        // This would typically be done with dependency injection
-        // For now, we'll set up a basic initialization
+        // Store components for ViewModel access
+        this.midiManager = midiManager
+        this.audioSynthesizer = audioSynthesizer
+        this.chordAnalyzer = chordAnalyzer
+    }
+    
+    // Add these properties to the class
+    private var midiManager: MidiManager? = null
+    private var audioSynthesizer: AudioSynthesizer? = null
+    private var chordAnalyzer: ChordAnalyzer? = null
+    
+    // Add method to get ViewModel with initialized components
+    fun getChordDisplayViewModel(): ChordDisplayViewModel {
+        val viewModel = ChordDisplayViewModel()
+        midiManager?.let { midi ->
+            audioSynthesizer?.let { audio ->
+                chordAnalyzer?.let { analyzer ->
+                    viewModel.initializeComponents(midi, audio, analyzer)
+                }
+            }
+        }
+        return viewModel
     }
 }

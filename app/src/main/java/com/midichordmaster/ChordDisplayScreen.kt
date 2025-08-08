@@ -14,6 +14,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.PaintingStyle
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -22,7 +23,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 
 @Composable
 fun ChordDisplayScreen(
-    viewModel: ChordDisplayViewModel = viewModel()
+    viewModel: ChordDisplayViewModel = (LocalContext.current as MainActivity).getChordDisplayViewModel()
 ) {
     val currentChord by viewModel.currentChord.collectAsState()
     val isPlaying by viewModel.isPlaying.collectAsState()
@@ -187,7 +188,9 @@ fun ChordDisplayScreen(
                         
                         Text(
                             text = if (pressedKeys.isNotEmpty()) {
-                                "Playing ${pressedKeys.size} note${if (pressedKeys.size > 1) "s" else ""}"
+                                val sortedNotes = pressedKeys.sorted()
+                                val noteNames = sortedNotes.map { midiNoteToNoteName(it) }
+                                "Notes: ${noteNames.joinToString(" + ")}"
                             } else {
                                 "Touch piano below or connect MIDI"
                             },
@@ -315,4 +318,12 @@ fun VisualPianoKeyboard(
             }
         }
     }
+}
+
+// Helper function to convert MIDI note number to note name
+private fun midiNoteToNoteName(midiNote: Int): String {
+    val noteNames = arrayOf("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
+    val octave = midiNote / 12 - 1
+    val noteIndex = midiNote % 12
+    return "${noteNames[noteIndex]}$octave"
 }

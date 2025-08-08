@@ -127,9 +127,13 @@ class ChordDisplayViewModel : ViewModel() {
             audioSynthesizer?.playNote(note, 80) // Default velocity 80
             _isPlaying.value = true
             
+            // Debug output
+            println("DEBUG: Virtual key pressed - note: $note, audioSynthesizer: ${audioSynthesizer != null}")
+            
             // Analyze chord
             val chord = chordAnalyzer?.analyzeChord(newKeys) ?: ""
             _currentChord.value = chord
+            println("DEBUG: Chord analyzed: $chord from notes: $newKeys")
         }
     }
     
