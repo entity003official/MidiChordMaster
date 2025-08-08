@@ -116,6 +116,45 @@ class ChordDisplayViewModel : ViewModel() {
         }
     }
     
+    // Virtual piano key handling
+    fun onVirtualKeyPress(note: Int) {
+        viewModelScope.launch {
+            val newKeys = _pressedKeys.value.toMutableSet()
+            newKeys.add(note)
+            _pressedKeys.value = newKeys
+            
+            // Play the note
+            audioSynthesizer?.playNote(note, 80) // Default velocity 80
+            _isPlaying.value = true
+            
+            // Analyze chord
+            val chord = chordAnalyzer?.analyzeChord(newKeys) ?: ""
+            _currentChord.value = chord
+        }
+    }
+    
+    fun onVirtualKeyRelease(note: Int) {
+        viewModelScope.launch {
+            val newKeys = _pressedKeys.value.toMutableSet()
+            newKeys.remove(note)
+            _pressedKeys.value = newKeys
+            
+            // Stop the note
+            audioSynthesizer?.stopNote(note)
+            
+            // Update playing status
+            _isPlaying.value = newKeys.isNotEmpty()
+            
+            // Re-analyze chord with remaining keys
+            val chord = if (newKeys.isNotEmpty()) {
+                chordAnalyzer?.analyzeChord(newKeys) ?: ""
+            } else {
+                ""
+            }
+            _currentChord.value = chord
+        }
+    }
+    
     override fun onCleared() {
         super.onCleared()
         audioSynthesizer?.release()
