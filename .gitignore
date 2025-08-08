@@ -89,3 +89,6 @@ fastlane/readme.md
 # Build scripts output
 build_output.log
 build_done.flag
+
+# Development scripts folder (contains temporary build scripts)
+scripts/
