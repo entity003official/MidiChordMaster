@@ -6,11 +6,15 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 
 class ChordDisplayViewModel : ViewModel() {
     
     private val _currentChord = MutableStateFlow("")
     val currentChord: StateFlow<String> = _currentChord.asStateFlow()
+    
+    private val _currentChordNotes = MutableStateFlow<List<String>>(emptyList())
+    val currentChordNotes: StateFlow<List<String>> = _currentChordNotes.asStateFlow()
     
     private val _isPlaying = MutableStateFlow(false)
     val isPlaying: StateFlow<Boolean> = _isPlaying.asStateFlow()
@@ -23,6 +27,9 @@ class ChordDisplayViewModel : ViewModel() {
     
     private val _debugLogs = MutableStateFlow<List<String>>(emptyList())
     val debugLogs: StateFlow<List<String>> = _debugLogs.asStateFlow()
+    
+    private val _memoryUsage = MutableStateFlow("")
+    val memoryUsage: StateFlow<String> = _memoryUsage.asStateFlow()
     
     private var midiManager: MidiManager? = null
     private var audioSynthesizer: AudioSynthesizer? = null
@@ -43,9 +50,66 @@ class ChordDisplayViewModel : ViewModel() {
         println("DEBUG_LOG: $logMessage")
     }
     
+    private fun updateChordAnalysis(notes: Set<Int>) {
+        try {
+            if (notes.isEmpty()) {
+                _currentChord.value = ""
+                _currentChordNotes.value = emptyList()
+                return
+            }
+            
+            chordAnalyzer?.let { analyzer ->
+                val result = analyzer.analyzeChord(notes)
+                _currentChord.value = result.chordName
+                _currentChordNotes.value = result.noteNames
+                addDebugLog("� Chord: ${result.chordName} | Notes: ${result.noteNames.joinToString(", ")}")
+            } ?: run {
+                val noteNames = notes.sorted().map { midiNoteToNoteName(it) }
+                _currentChord.value = noteNames.joinToString("-")
+                _currentChordNotes.value = noteNames
+                addDebugLog("❌ ChordAnalyzer is null, showing note names")
+            }
+        } catch (e: Exception) {
+            addDebugLog("❌ Chord analysis failed: ${e.message}")
+            _currentChord.value = "Analysis Error"
+            _currentChordNotes.value = emptyList()
+        }
+    }
+    
+    private fun updateMemoryUsage() {
+        try {
+            val runtime = Runtime.getRuntime()
+            val totalMemory = runtime.totalMemory() / (1024 * 1024) // MB
+            val freeMemory = runtime.freeMemory() / (1024 * 1024) // MB
+            val usedMemory = totalMemory - freeMemory
+            val maxMemory = runtime.maxMemory() / (1024 * 1024) // MB
+            
+            _memoryUsage.value = "Memory: ${usedMemory}/${maxMemory}MB (${(usedMemory * 100 / maxMemory)}%)"
+            
+            if (usedMemory > maxMemory * 0.8) {
+                addDebugLog("⚠️ High memory usage: ${usedMemory}MB/${maxMemory}MB")
+            }
+        } catch (e: Exception) {
+            addDebugLog("❌ Memory check failed: ${e.message}")
+        }
+    }
+    
     fun clearDebugLogs() {
         _debugLogs.value = emptyList()
         addDebugLog("Debug logs cleared")
+    }
+    
+    fun forceGarbageCollection() {
+        try {
+            addDebugLog("🧹 Running garbage collection...")
+            System.gc()
+            // Wait a moment for GC to complete
+            Thread.sleep(100)
+            updateMemoryUsage()
+            addDebugLog("✅ Garbage collection completed")
+        } catch (e: Exception) {
+            addDebugLog("❌ Garbage collection failed: ${e.message}")
+        }
     }
     
     fun getDiagnosticInfo() {
@@ -125,8 +189,8 @@ class ChordDisplayViewModel : ViewModel() {
                     _isPlaying.value = true
                     
                     // Analyze chord
-                    val chord = chordAnalyzer?.analyzeChord(newKeys) ?: ""
-                    _currentChord.value = chord
+                    updateChordAnalysis(newKeys)
+                    updateMemoryUsage()
                 }
                 
                 MidiEvent.Type.NOTE_OFF -> {
@@ -141,12 +205,7 @@ class ChordDisplayViewModel : ViewModel() {
                     _isPlaying.value = newKeys.isNotEmpty()
                     
                     // Re-analyze chord with remaining keys
-                    val chord = if (newKeys.isNotEmpty()) {
-                        chordAnalyzer?.analyzeChord(newKeys) ?: ""
-                    } else {
-                        ""
-                    }
-                    _currentChord.value = chord
+                    updateChordAnalysis(newKeys)
                 }
 
                 MidiEvent.Type.CONTROL_CHANGE -> {
@@ -190,7 +249,7 @@ class ChordDisplayViewModel : ViewModel() {
                 addDebugLog("📤 playChord() called successfully")
                 
                 _pressedKeys.value = testChord
-                _currentChord.value = "C Major"
+                updateChordAnalysis(testChord)
                 _isPlaying.value = true
                 
                 addDebugLog("⏱️ Playing for 2 seconds...")
@@ -201,7 +260,7 @@ class ChordDisplayViewModel : ViewModel() {
                 addDebugLog("🛑 Stopping all notes...")
                 audioSynthesizer?.stopAllNotes()
                 _pressedKeys.value = emptySet()
-                _currentChord.value = ""
+                updateChordAnalysis(emptySet())
                 _isPlaying.value = false
                 
                 addDebugLog("✅ Audio test completed")
@@ -238,9 +297,8 @@ class ChordDisplayViewModel : ViewModel() {
                 addDebugLog("✅ playNote() called successfully")
                 
                 // Analyze chord
-                val chord = chordAnalyzer?.analyzeChord(newKeys) ?: ""
-                _currentChord.value = chord
-                addDebugLog("🎯 Chord analyzed: '$chord' from notes: $newKeys")
+                updateChordAnalysis(newKeys)
+                updateMemoryUsage()
                 
             } catch (e: Exception) {
                 addDebugLog("❌ Virtual key press failed: ${e.message}")
@@ -266,18 +324,19 @@ class ChordDisplayViewModel : ViewModel() {
                 _isPlaying.value = newKeys.isNotEmpty()
                 
                 // Re-analyze chord with remaining keys
-                val chord = if (newKeys.isNotEmpty()) {
-                    chordAnalyzer?.analyzeChord(newKeys) ?: ""
-                } else {
-                    ""
-                }
-                _currentChord.value = chord
-                addDebugLog("🎯 Remaining chord: '$chord' from notes: $newKeys")
+                updateChordAnalysis(newKeys)
                 
             } catch (e: Exception) {
                 addDebugLog("❌ Virtual key release failed: ${e.message}")
             }
         }
+    }
+    
+    private fun midiNoteToNoteName(midiNote: Int): String {
+        val noteNames = arrayOf("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
+        val octave = (midiNote / 12) - 1
+        val noteIndex = midiNote % 12
+        return "${noteNames[noteIndex]}$octave"
     }
     
     override fun onCleared() {

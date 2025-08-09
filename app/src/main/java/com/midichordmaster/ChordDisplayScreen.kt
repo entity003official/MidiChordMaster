@@ -29,10 +29,12 @@ fun ChordDisplayScreen(
     viewModel: ChordDisplayViewModel = viewModel()
 ) {
     val currentChord by viewModel.currentChord.collectAsState()
+    val currentChordNotes by viewModel.currentChordNotes.collectAsState()
     val isPlaying by viewModel.isPlaying.collectAsState()
     val pressedKeys by viewModel.pressedKeys.collectAsState()
     val isMidiConnected by viewModel.isMidiConnected.collectAsState()
     val debugLogs by viewModel.debugLogs.collectAsState()
+    val memoryUsage by viewModel.memoryUsage.collectAsState()
 
     Column(
         modifier = Modifier
@@ -68,7 +70,7 @@ fun ChordDisplayScreen(
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(100.dp),
+                        .height(120.dp),
                     elevation = 8.dp,
                     backgroundColor = if (isPlaying) {
                         MaterialTheme.colors.primary.copy(alpha = 0.1f)
@@ -93,11 +95,22 @@ fun ChordDisplayScreen(
                             textAlign = TextAlign.Center
                         )
                         
+                        if (currentChordNotes.isNotEmpty()) {
+                            Text(
+                                text = "(${currentChordNotes.joinToString(", ")})",
+                                style = MaterialTheme.typography.h6,
+                                color = MaterialTheme.colors.primary.copy(alpha = 0.8f),
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(top = 4.dp)
+                            )
+                        }
+                        
                         if (isPlaying) {
                             Text(
                                 text = "♪ Playing",
                                 style = MaterialTheme.typography.caption,
-                                color = MaterialTheme.colors.primary
+                                color = MaterialTheme.colors.primary,
+                                modifier = Modifier.padding(top = 4.dp)
                             )
                         }
                     }
@@ -186,32 +199,67 @@ fun ChordDisplayScreen(
                         .fillMaxSize()
                         .padding(16.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Debug Logs (Dev Mode)",
-                            style = MaterialTheme.typography.h6,
-                            color = MaterialTheme.colors.onSurface,
-                            fontWeight = FontWeight.Bold
-                        )
-                        
-                        Button(
-                            onClick = { viewModel.clearDebugLogs() },
-                            modifier = Modifier.height(32.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                backgroundColor = MaterialTheme.colors.secondary
-                            )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "Clear",
-                                fontSize = 12.sp,
-                                color = Color.White
+                                text = "Debug Console",
+                                style = MaterialTheme.typography.h6,
+                                color = MaterialTheme.colors.onSurface,
+                                fontWeight = FontWeight.Bold
+                            )
+                            
+                            Text(
+                                text = memoryUsage,
+                                style = MaterialTheme.typography.caption,
+                                color = if (memoryUsage.contains("8") || memoryUsage.contains("9")) Color.Red else Color.Green,
+                                fontSize = 10.sp
                             )
                         }
-                    }
+                        
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Button(
+                                onClick = { viewModel.clearDebugLogs() },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(28.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    backgroundColor = MaterialTheme.colors.secondary
+                                )
+                            ) {
+                                Text(
+                                    text = "Clear",
+                                    fontSize = 10.sp,
+                                    color = Color.White
+                                )
+                            }
+                            
+                            Spacer(modifier = Modifier.width(4.dp))
+                            
+                            Button(
+                                onClick = { 
+                                    System.gc() // Suggest garbage collection
+                                    viewModel.getDiagnosticInfo()
+                                },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(28.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    backgroundColor = Color.Gray
+                                )
+                            ) {
+                                Text(
+                                    text = "GC",
+                                    fontSize = 10.sp,
+                                    color = Color.White
+                                )
+                            }
+                        }
                     
                     Spacer(modifier = Modifier.height(8.dp))
                     
@@ -269,14 +317,12 @@ fun ChordDisplayScreen(
             }
         }
 
-        // Bottom interactive piano
-        InteractivePianoKeyboard(
+        // Bottom scrollable 88-key piano
+        ScrollablePianoKeyboard(
             modifier = Modifier.fillMaxWidth(),
             pressedKeys = pressedKeys,
             onKeyPress = { note -> viewModel.onVirtualKeyPress(note) },
-            onKeyRelease = { note -> viewModel.onVirtualKeyRelease(note) },
-            startOctave = 3,
-            octaveCount = 3
+            onKeyRelease = { note -> viewModel.onVirtualKeyRelease(note) }
         )
     }
 }

@@ -2,34 +2,47 @@ package com.midichordmaster
 
 class ChordAnalyzer {
     
+    data class ChordResult(
+        val chordName: String,
+        val noteNames: List<String>
+    )
+    
     private val chordPatterns = mapOf(
         // Major chords
-        setOf(0, 4, 7) to "Major",
-        setOf(0, 4, 7, 11) to "Major 7",
-        setOf(0, 4, 7, 10) to "Dominant 7",
-        setOf(0, 4, 7, 9) to "Major add9",
+        setOf(0, 4, 7) to "Maj",
+        setOf(0, 4, 7, 11) to "Maj7", 
+        setOf(0, 4, 7, 10) to "7",
+        setOf(0, 4, 7, 9) to "add9",
+        setOf(0, 4, 7, 14) to "9",
+        setOf(0, 4, 7, 14, 17) to "11",
+        setOf(0, 4, 7, 14, 21) to "13",
+        setOf(0, 4, 7, 9, 14) to "Maj9",
         
-        // Minor chords
-        setOf(0, 3, 7) to "Minor",
-        setOf(0, 3, 7, 10) to "Minor 7",
-        setOf(0, 3, 7, 11) to "Minor Major 7",
-        setOf(0, 3, 7, 9) to "Minor add9",
+        // Minor chords  
+        setOf(0, 3, 7) to "m",
+        setOf(0, 3, 7, 10) to "m7",
+        setOf(0, 3, 7, 11) to "mMaj7",
+        setOf(0, 3, 7, 9) to "madd9",
+        setOf(0, 3, 7, 14) to "m9",
         
         // Diminished chords
-        setOf(0, 3, 6) to "Diminished",
-        setOf(0, 3, 6, 9) to "Diminished 7",
+        setOf(0, 3, 6) to "dim",
+        setOf(0, 3, 6, 9) to "dim7",
+        setOf(0, 3, 6, 10) to "m7b5", // half-diminished
         
         // Augmented chords
-        setOf(0, 4, 8) to "Augmented",
+        setOf(0, 4, 8) to "aug",
+        setOf(0, 4, 8, 11) to "augMaj7",
         
         // Suspended chords
-        setOf(0, 5, 7) to "Sus4",
-        setOf(0, 2, 7) to "Sus2",
+        setOf(0, 5, 7) to "sus4",
+        setOf(0, 2, 7) to "sus2",
+        setOf(0, 5, 7, 10) to "7sus4",
+        setOf(0, 2, 7, 10) to "7sus2",
         
-        // Extended chords
-        setOf(0, 4, 7, 10, 2) to "9",
-        setOf(0, 4, 7, 10, 2, 5) to "11",
-        setOf(0, 4, 7, 10, 2, 9) to "13",
+        // Sixth chords
+        setOf(0, 4, 7, 9) to "6",
+        setOf(0, 3, 7, 9) to "m6",
         
         // Power chord
         setOf(0, 7) to "5"
@@ -40,20 +53,25 @@ class ChordAnalyzer {
         "F#", "G", "G#", "A", "A#", "B"
     )
     
-    fun analyzeChord(notes: Set<Int>): String {
-        if (notes.isEmpty()) return ""
+    fun analyzeChord(notes: Set<Int>): ChordResult {
+        if (notes.isEmpty()) return ChordResult("", emptyList())
+        
+        val sortedNotes = notes.sorted()
+        val noteNamesList = sortedNotes.map { getNoteNameFromMidi(it) }
+        
         if (notes.size == 1) {
-            return "${getNoteNameFromMidi(notes.first())} (single note)"
+            return ChordResult(noteNamesList.first(), noteNamesList)
         }
         
         // Convert MIDI notes to relative intervals
-        val sortedNotes = notes.sorted()
         val rootNote = sortedNotes.first()
         val intervals = sortedNotes.map { (it - rootNote) % 12 }.toSet()
         
         // Try to find exact match
         chordPatterns[intervals]?.let { chordType ->
-            return "${getNoteNameFromMidi(rootNote)} $chordType"
+            val rootName = getNoteNameFromMidi(rootNote)
+            val chordName = "$rootName$chordType"
+            return ChordResult(chordName, noteNamesList)
         }
         
         // Try inversions by rotating the root
@@ -65,25 +83,20 @@ class ChordAnalyzer {
             }.toSet()
             
             chordPatterns[invertedIntervals]?.let { chordType ->
-                val inversion = when (sortedNotes.indexOf(possibleRoot)) {
+                val rootName = getNoteNameFromMidi(possibleRoot)
+                val inversionText = when (sortedNotes.indexOf(possibleRoot)) {
                     0 -> ""
-                    1 -> " (1st inversion)"
-                    2 -> " (2nd inversion)"
-                    else -> " (inversion)"
+                    1 -> "/1st"
+                    2 -> "/2nd" 
+                    else -> "/inv"
                 }
-                return "${getNoteNameFromMidi(possibleRoot)} $chordType$inversion"
+                val chordName = "$rootName$chordType$inversionText"
+                return ChordResult(chordName, noteNamesList)
             }
         }
         
-        // If no exact match found, try to identify partial chords
-        val partialMatch = findPartialChord(intervals)
-        if (partialMatch.isNotEmpty()) {
-            return "${getNoteNameFromMidi(rootNote)} $partialMatch"
-        }
-        
-        // Return notes if no chord pattern matches
-        val notesList = sortedNotes.joinToString("-") { getNoteNameFromMidi(it) }
-        return notesList
+        // If no exact match found, return note names
+        return ChordResult(noteNamesList.joinToString("-"), noteNamesList)
     }
     
     private fun findPartialChord(intervals: Set<Int>): String {
