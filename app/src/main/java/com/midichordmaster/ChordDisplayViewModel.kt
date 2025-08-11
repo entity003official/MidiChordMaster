@@ -272,6 +272,29 @@ class ChordDisplayViewModel : ViewModel() {
         }
     }
     
+    // Enhanced methods for the new UI
+    fun playNote(note: Int, velocity: Int = 80) {
+        onVirtualKeyPress(note)
+    }
+    
+    fun stopNote(note: Int) {
+        onVirtualKeyRelease(note)
+    }
+    
+    fun clearNotes() {
+        viewModelScope.launch {
+            _pressedKeys.value = emptySet()
+            updateChordAnalysis(emptySet())
+            _isPlaying.value = false
+            audioSynthesizer?.stopAllNotes()
+            addDebugLog("🧹 All notes cleared")
+        }
+    }
+    
+    fun testAudioSynthesis() {
+        testAudio()
+    }
+    
     // Virtual piano key handling
     fun onVirtualKeyPress(note: Int) {
         viewModelScope.launch {

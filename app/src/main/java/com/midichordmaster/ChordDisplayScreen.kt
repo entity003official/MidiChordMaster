@@ -41,292 +41,184 @@ fun ChordDisplayScreen(
             .fillMaxSize()
             .background(MaterialTheme.colors.background)
     ) {
-        // Top content area (chord info and controls)
-        Row(
+        // Compact top control bar (fixed height)
+        Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f)
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(8.dp),
+            elevation = 4.dp
         ) {
-            // Left panel - Chord display and status
             Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight(),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                modifier = Modifier.padding(16.dp)
             ) {
-                // App title
-                Text(
-                    text = "MIDI Chord Master",
-                    style = MaterialTheme.typography.h5,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colors.primary,
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Center
-                )
-
-                // Current chord display
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(120.dp),
-                    elevation = 8.dp,
-                    backgroundColor = if (isPlaying) {
-                        MaterialTheme.colors.primary.copy(alpha = 0.1f)
-                    } else {
-                        MaterialTheme.colors.surface
-                    }
-                ) {
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Text(
-                            text = if (currentChord.isNotEmpty()) currentChord else "Play some keys...",
-                            style = MaterialTheme.typography.h4,
-                            fontWeight = FontWeight.Bold,
-                            color = if (isPlaying) {
-                                MaterialTheme.colors.primary
-                            } else {
-                                MaterialTheme.colors.onSurface.copy(alpha = 0.6f)
-                            },
-                            textAlign = TextAlign.Center
-                        )
-                        
-                        if (currentChordNotes.isNotEmpty()) {
-                            Text(
-                                text = "(${currentChordNotes.joinToString(", ")})",
-                                style = MaterialTheme.typography.h6,
-                                color = MaterialTheme.colors.primary.copy(alpha = 0.8f),
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.padding(top = 4.dp)
-                            )
-                        }
-                        
-                        if (isPlaying) {
-                            Text(
-                                text = "♪ Playing",
-                                style = MaterialTheme.typography.caption,
-                                color = MaterialTheme.colors.primary,
-                                modifier = Modifier.padding(top = 4.dp)
-                            )
-                        }
-                    }
-                }
-
-                // Connection status
+                // App title and current chord (single row)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    StatusIndicator(
-                        label = "MIDI",
-                        isConnected = isMidiConnected,
-                        modifier = Modifier.weight(1f)
+                    Text(
+                        text = "MIDI Chord Master",
+                        style = MaterialTheme.typography.h6,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colors.primary
                     )
                     
-                    StatusIndicator(
-                        label = "Audio",
-                        isConnected = true, // Audio is always ready
-                        modifier = Modifier.weight(1f)
-                    )
-                    
-                    StatusIndicator(
-                        label = "Virtual",
-                        isConnected = true, // Virtual piano is always ready
-                        modifier = Modifier.weight(1f)
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "♪ ",
+                            style = MaterialTheme.typography.h5,
+                            color = MaterialTheme.colors.primary
+                        )
+                        Text(
+                            text = if (currentChord.isNotEmpty()) currentChord else "Play keys...",
+                            style = MaterialTheme.typography.h5,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isPlaying) MaterialTheme.colors.primary else MaterialTheme.colors.onSurface.copy(alpha = 0.7f)
+                        )
+                        if (currentChordNotes.isNotEmpty()) {
+                            Text(
+                                text = " (${currentChordNotes.joinToString(", ")})",
+                                style = MaterialTheme.typography.body2,
+                                color = MaterialTheme.colors.onSurface.copy(alpha = 0.8f)
+                            )
+                        }
+                    }
                 }
-
-                // Control buttons
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                // Status and controls row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Button(
-                        onClick = { viewModel.connectMidi() },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(
-                            backgroundColor = if (isMidiConnected) Color.Green else MaterialTheme.colors.primary
-                        )
+                    // Status indicators (compact)
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = if (isMidiConnected) "MIDI Connected" else "Connect MIDI",
-                            color = Color.White,
-                            fontSize = 12.sp
+                        StatusIndicator(
+                            label = "MIDI",
+                            isConnected = isMidiConnected
+                        )
+                        StatusIndicator(
+                            label = "Audio",
+                            isConnected = true
+                        )
+                        StatusIndicator(
+                            label = "Virtual",
+                            isConnected = true
                         )
                     }
                     
-                    Spacer(modifier = Modifier.width(4.dp))
-                    
-                    Button(
-                        onClick = { viewModel.testAudio() },
-                        modifier = Modifier.weight(1f)
+                    // Control buttons
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text("Test Audio", fontSize = 12.sp)
-                    }
-                    
-                    Spacer(modifier = Modifier.width(4.dp))
-                    
-                    Button(
-                        onClick = { viewModel.getDiagnosticInfo() },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(
-                            backgroundColor = MaterialTheme.colors.secondary
-                        )
-                    ) {
-                        Text(
-                            text = "Diagnose",
-                            color = Color.White,
-                            fontSize = 12.sp
-                        )
-                    }
-                }
-            }
-
-            // Right panel - Debug logs
-            Card(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight(),
-                elevation = 4.dp
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(16.dp)
-                ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                        Button(
+                            onClick = { viewModel.connectMidi() },
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                         ) {
-                            Text(
-                                text = "Debug Console",
-                                style = MaterialTheme.typography.h6,
-                                color = MaterialTheme.colors.onSurface,
-                                fontWeight = FontWeight.Bold
-                            )
-                            
-                            Text(
-                                text = memoryUsage,
-                                style = MaterialTheme.typography.caption,
-                                color = if (memoryUsage.contains("8") || memoryUsage.contains("9")) Color.Red else Color.Green,
-                                fontSize = 10.sp
-                            )
+                            Text("Connect", style = MaterialTheme.typography.caption)
                         }
-                        
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                        Button(
+                            onClick = { viewModel.testAudioSynthesis() },
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                         ) {
-                            Button(
-                                onClick = { viewModel.clearDebugLogs() },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(28.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    backgroundColor = MaterialTheme.colors.secondary
-                                )
-                            ) {
-                                Text(
-                                    text = "Clear",
-                                    fontSize = 10.sp,
-                                    color = Color.White
-                                )
-                            }
-                            
-                            Spacer(modifier = Modifier.width(4.dp))
-                            
-                            Button(
-                                onClick = { 
-                                    System.gc() // Suggest garbage collection
-                                    viewModel.getDiagnosticInfo()
-                                },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(28.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    backgroundColor = Color.Gray
-                                )
-                            ) {
-                                Text(
-                                    text = "GC",
-                                    fontSize = 10.sp,
-                                    color = Color.White
-                                )
-                            }
+                            Text("Test Audio", style = MaterialTheme.typography.caption)
                         }
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    // Debug logs display
-                    val listState = rememberLazyListState()
-                    
-                    // Auto-scroll to bottom when new logs arrive
-                    LaunchedEffect(debugLogs.size) {
-                        if (debugLogs.isNotEmpty()) {
-                            listState.animateScrollToItem(debugLogs.size - 1)
-                        }
-                    }
-                    
-                    Card(
-                        modifier = Modifier.fillMaxSize(),
-                        backgroundColor = Color.Black,
-                        elevation = 2.dp
-                    ) {
-                        LazyColumn(
-                            state = listState,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                        Button(
+                            onClick = { viewModel.clearNotes() },
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                         ) {
-                            if (debugLogs.isEmpty()) {
-                                item {
-                                    Text(
-                                        text = "No debug logs yet...\nTry pressing 'Test Audio' or virtual piano keys",
-                                        color = Color.Gray,
-                                        fontSize = 12.sp,
-                                        modifier = Modifier.padding(8.dp)
-                                    )
-                                }
-                            } else {
-                                items(debugLogs) { log ->
-                                    Text(
-                                        text = log,
-                                        color = when {
-                                            log.contains("❌") -> Color.Red
-                                            log.contains("✅") -> Color.Green
-                                            log.contains("🔊") || log.contains("🎵") || log.contains("🎹") -> Color.Cyan
-                                            log.contains("🔧") || log.contains("🛑") -> Color.Yellow
-                                            log.contains("🎯") -> Color.Magenta
-                                            else -> Color.White
-                                        },
-                                        fontSize = 10.sp,
-                                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
-                                    )
-                                }
-                            }
+                            Text("Clear", style = MaterialTheme.typography.caption)
                         }
                     }
                 }
             }
         }
-
-        // Bottom scrollable 88-key piano
-        ScrollablePianoKeyboard(
-            modifier = Modifier.fillMaxWidth(),
-            pressedKeys = pressedKeys,
-            onKeyPress = { note -> viewModel.onVirtualKeyPress(note) },
-            onKeyRelease = { note -> viewModel.onVirtualKeyRelease(note) }
-        )
+        
+        // Main content area with piano and debug
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 8.dp, vertical = 4.dp)
+        ) {
+            // Left side - Full 88-key scrollable piano (takes most space)
+            Column(
+                modifier = Modifier
+                    .weight(3f)
+                    .fillMaxHeight()
+                    .padding(end = 8.dp)
+            ) {
+                Text(
+                    text = "88-Key Piano (A0-C8) - Scroll to navigate",
+                    style = MaterialTheme.typography.subtitle2,
+                    color = MaterialTheme.colors.onSurface.copy(alpha = 0.8f),
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                
+                // Enhanced scrollable 88-key piano
+                ScrollablePianoKeyboard(
+                    modifier = Modifier.fillMaxSize(),
+                    pressedKeys = pressedKeys,
+                    onKeyPress = { note -> viewModel.playNote(note) },
+                    onKeyRelease = { note -> viewModel.stopNote(note) }
+                )
+            }
+            
+            // Right side - Debug console (compact)
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+            ) {
+                Text(
+                    text = "Debug Console",
+                    style = MaterialTheme.typography.subtitle2,
+                    color = MaterialTheme.colors.onSurface.copy(alpha = 0.8f),
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                
+                Card(
+                    modifier = Modifier.fillMaxSize(),
+                    elevation = 2.dp,
+                    backgroundColor = Color.Black.copy(alpha = 0.9f)
+                ) {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(8.dp),
+                        state = rememberLazyListState(),
+                        reverseLayout = true
+                    ) {
+                        items(debugLogs.takeLast(100)) { log ->
+                            Text(
+                                text = log,
+                                style = MaterialTheme.typography.caption,
+                                color = when {
+                                    log.contains("❌") -> Color.Red
+                                    log.contains("✅") -> Color.Green
+                                    log.contains("🔊") || log.contains("🎵") || log.contains("🎹") -> Color.Cyan
+                                    log.contains("🔧") || log.contains("🛑") -> Color.Yellow
+                                    log.contains("🎯") -> Color.Magenta
+                                    else -> Color.White
+                                },
+                                fontSize = 10.sp,
+                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                modifier = Modifier.padding(vertical = 1.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 }
-
 @Composable
 fun StatusIndicator(
     label: String,

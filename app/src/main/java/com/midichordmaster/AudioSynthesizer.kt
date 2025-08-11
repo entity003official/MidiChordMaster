@@ -9,24 +9,27 @@ import kotlin.math.*
 
 class AudioSynthesizer {
     
+    // Optimized for low latency
     private val sampleRate = 44100
-    private val bufferSize = AudioTrack.getMinBufferSize(
+    private val bufferSize = (AudioTrack.getMinBufferSize(
         sampleRate,
         AudioFormat.CHANNEL_OUT_MONO,
         AudioFormat.ENCODING_PCM_16BIT
-    ).coerceAtLeast(1024)
+    ) / 4).coerceAtLeast(512) // Reduced buffer size for lower latency
     
     private var audioTrack: AudioTrack? = null
     private val activeNotes = mutableMapOf<Int, NoteData>()
     private var synthesisJob: Job? = null
     private var isPlaying = false
     private var isInitialized = false
+    private var latencyDebugEnabled = true
     
     data class NoteData(
         val frequency: Double,
         val velocity: Int,
         var phase: Double = 0.0,
-        var envelope: Double = 1.0
+        var envelope: Double = 1.0,
+        var startTime: Long = System.nanoTime() // For latency measurement
     )
     
     init {
@@ -34,9 +37,10 @@ class AudioSynthesizer {
     }
     
     private fun initializeAudio() {
+        val startTime = System.nanoTime()
         try {
-            println("DEBUG: Starting AudioSynthesizer initialization...")
-            println("DEBUG: Sample rate: $sampleRate, Buffer size: $bufferSize")
+            println("🔧 Starting AudioSynthesizer initialization...")
+            println("🔧 Sample rate: $sampleRate, Optimized buffer size: $bufferSize")
             
             // Check if audio is available
             if (sampleRate <= 0 || bufferSize <= 0) {
@@ -48,6 +52,7 @@ class AudioSynthesizer {
                     AudioAttributes.Builder()
                         .setUsage(AudioAttributes.USAGE_MEDIA)
                         .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                        .setFlags(AudioAttributes.FLAG_LOW_LATENCY) // Enable low latency mode
                         .build()
                 )
                 .setAudioFormat(
@@ -57,26 +62,29 @@ class AudioSynthesizer {
                         .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
                         .build()
                 )
-                .setBufferSizeInBytes(bufferSize * 2)
+                .setBufferSizeInBytes(bufferSize) // Use smaller buffer
+                .setPerformanceMode(AudioTrack.PERFORMANCE_MODE_LOW_LATENCY) // Enable low latency performance
                 .build()
                 
-            println("DEBUG: AudioTrack created successfully")
-            println("DEBUG: AudioTrack state: ${audioTrack?.state}")
+            println("✅ AudioTrack created successfully")
+            println("🔧 AudioTrack state: ${audioTrack?.state}")
             
             // Check if AudioTrack was created successfully
             if (audioTrack?.state != AudioTrack.STATE_INITIALIZED) {
                 throw IllegalStateException("AudioTrack initialization failed. State: ${audioTrack?.state}")
             }
             
-            println("DEBUG: AudioTrack playback state: ${audioTrack?.playState}")
+            println("🔧 AudioTrack playback state: ${audioTrack?.playState}")
             
             audioTrack?.play()
-            println("DEBUG: AudioTrack play() called")
-            println("DEBUG: AudioTrack playback state after play(): ${audioTrack?.playState}")
+            println("✅ AudioTrack play() called")
+            println("🔧 AudioTrack playback state after play(): ${audioTrack?.playState}")
             
             startSynthesis()
             isInitialized = true
-            println("SUCCESS: AudioSynthesizer initialized successfully")
+            
+            val initTime = (System.nanoTime() - startTime) / 1_000_000.0
+            println("✅ AudioSynthesizer initialized successfully in ${String.format("%.2f", initTime)}ms")
         } catch (e: Exception) {
             println("ERROR: Failed to initialize AudioSynthesizer: ${e.message}")
             println("ERROR: Exception type: ${e.javaClass.simpleName}")
@@ -95,10 +103,12 @@ class AudioSynthesizer {
     
     private fun startSynthesis() {
         synthesisJob = CoroutineScope(Dispatchers.Default).launch {
-            val buffer = ShortArray(bufferSize)
+            val buffer = ShortArray(bufferSize / 2) // Smaller buffer for lower latency
             
             while (isActive && isInitialized) {
                 try {
+                    val synthesisStart = System.nanoTime()
+                    
                     if (activeNotes.isNotEmpty()) {
                         generateAudioBuffer(buffer)
                         audioTrack?.write(buffer, 0, buffer.size)
@@ -108,9 +118,16 @@ class AudioSynthesizer {
                         audioTrack?.write(buffer, 0, buffer.size)
                     }
                     
-                    delay(10) // Small delay to prevent excessive CPU usage
+                    if (latencyDebugEnabled && activeNotes.isNotEmpty()) {
+                        val synthesisTime = (System.nanoTime() - synthesisStart) / 1_000_000.0
+                        if (synthesisTime > 5.0) { // Only log if synthesis takes more than 5ms
+                            println("🎯 Audio synthesis: ${String.format("%.2f", synthesisTime)}ms")
+                        }
+                    }
+                    
+                    delay(1) // Minimal delay for low latency
                 } catch (e: Exception) {
-                    println("ERROR: Audio synthesis error: ${e.message}")
+                    println("❌ Audio synthesis error: ${e.message}")
                     break
                 }
             }
@@ -176,44 +193,54 @@ class AudioSynthesizer {
     }
     
     fun playNote(midiNote: Int, velocity: Int) {
-        println("DEBUG: playNote called - note: $midiNote, velocity: $velocity")
-        println("DEBUG: isInitialized: $isInitialized")
-        println("DEBUG: audioTrack state: ${audioTrack?.state}")
-        println("DEBUG: audioTrack playback state: ${audioTrack?.playState}")
+        val noteStartTime = System.nanoTime()
+        
+        if (latencyDebugEnabled) {
+            println("🎹 playNote called - note: $midiNote, velocity: $velocity")
+        }
         
         if (!isInitialized) {
-            println("WARNING: AudioSynthesizer not initialized, cannot play note $midiNote")
+            println("❌ AudioSynthesizer not initialized")
             return
         }
         
-        if (audioTrack == null) {
-            println("ERROR: AudioTrack is null!")
+        if (audioTrack?.state != AudioTrack.STATE_INITIALIZED || 
+            audioTrack?.playState != AudioTrack.PLAYSTATE_PLAYING) {
+            println("❌ AudioTrack not ready - state: ${audioTrack?.state}, playState: ${audioTrack?.playState}")
             return
         }
         
         try {
             val frequency = midiNoteToFrequency(midiNote)
-            activeNotes[midiNote] = NoteData(frequency, velocity)
-            isPlaying = true
-            println("SUCCESS: Added note $midiNote at frequency $frequency Hz to active notes")
-            println("DEBUG: Active notes count: ${activeNotes.size}")
+            val noteData = NoteData(
+                frequency = frequency,
+                velocity = velocity.coerceIn(1, 127),
+                startTime = noteStartTime
+            )
+            
+            activeNotes[midiNote] = noteData
+            
+            if (latencyDebugEnabled) {
+                val processingTime = (System.nanoTime() - noteStartTime) / 1_000_000.0
+                println("🎵 Note $midiNote added in ${String.format("%.2f", processingTime)}ms, active notes: ${activeNotes.size}")
+            }
         } catch (e: Exception) {
-            println("ERROR: Failed to play note $midiNote: ${e.message}")
-            e.printStackTrace()
+            println("❌ Error playing note $midiNote: ${e.message}")
         }
     }
     
     fun stopNote(midiNote: Int) {
-        if (!isInitialized) return
+        val stopTime = System.nanoTime()
         
-        try {
-            activeNotes.remove(midiNote)
-            if (activeNotes.isEmpty()) {
-                isPlaying = false
-            }
-            println("DEBUG: Stopped note $midiNote")
-        } catch (e: Exception) {
-            println("ERROR: Failed to stop note $midiNote: ${e.message}")
+        if (latencyDebugEnabled) {
+            println("🛑 stopNote called - note: $midiNote")
+        }
+        
+        val removedNote = activeNotes.remove(midiNote)
+        
+        if (latencyDebugEnabled && removedNote != null) {
+            val noteDuration = (stopTime - removedNote.startTime) / 1_000_000.0
+            println("🎵 Note $midiNote stopped after ${String.format("%.2f", noteDuration)}ms, remaining: ${activeNotes.size}")
         }
     }
     
@@ -264,6 +291,30 @@ class AudioSynthesizer {
                 appendLine("- 活跃音符详情:")
                 activeNotes.forEach { (note, data) ->
                     appendLine("  * 音符$note: 频率${data.frequency}Hz, 音量${data.velocity}, 包络${String.format("%.3f", data.envelope)}")
+                }
+            }
+        }
+    }
+    
+    fun toggleLatencyDebug(): Boolean {
+        latencyDebugEnabled = !latencyDebugEnabled
+        println("🔧 Latency debugging: ${if (latencyDebugEnabled) "ENABLED" else "DISABLED"}")
+        return latencyDebugEnabled
+    }
+    
+    fun getLatencyInfo(): String {
+        return buildString {
+            appendLine("🔧 音频延迟信息:")
+            appendLine("- 采样率: ${sampleRate}Hz")
+            appendLine("- 缓冲区大小: $bufferSize 采样")
+            appendLine("- 理论延迟: ${String.format("%.2f", (bufferSize.toDouble() / sampleRate) * 1000)}ms")
+            appendLine("- 延迟调试: ${if (latencyDebugEnabled) "启用" else "禁用"}")
+            appendLine("- 音频模式: 低延迟优化")
+            if (activeNotes.isNotEmpty()) {
+                appendLine("- 活跃音符详情:")
+                activeNotes.forEach { (note, data) ->
+                    val noteAge = (System.nanoTime() - data.startTime) / 1_000_000.0
+                    appendLine("  * 音符$note: 频率${String.format("%.1f", data.frequency)}Hz, 持续${String.format("%.1f", noteAge)}ms")
                 }
             }
         }
