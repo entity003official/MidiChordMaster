@@ -118,58 +118,52 @@ fun ScrollablePianoKeyboard(
                     .height(200.dp)
                     .horizontalScroll(scrollState)
                     .pointerInput(Unit) {
-                        var activePointers = mutableMapOf<Long, Int>() // pointerId to midiNote
+                        var activePointers = mutableMapOf<Long, Int>() // pointerId to midiNote - FIXED TYPE to Long
                         
                         awaitPointerEventScope {
                             while (true) {
                                 val event = awaitPointerEvent()
                                 
-                                when (event.type) {
-                                    PointerEventType.Press -> {
-                                        event.changes.forEach { change ->
-                                            val adjustedX = change.position.x + scrollState.value
-                                            val adjustedY = change.position.y
-                                            val keyPressed = getKeyFromPosition(adjustedX, adjustedY, whiteKeyWidth, blackKeyWidth, blackKeyHeight, startNote)
+                                event.changes.forEach { change ->
+                                    val pointerId = change.id.value // This is Long type
+                                    val adjustedX = change.position.x + scrollState.value
+                                    val adjustedY = change.position.y
+                                    
+                                    when {
+                                        change.pressed -> {
+                                            // 简化逻辑：按下时检测键位
+                                            val keyPressed = getKeyFromPosition(
+                                                adjustedX, adjustedY, whiteKeyWidth, 
+                                                blackKeyWidth, blackKeyHeight, startNote
+                                            )
                                             
                                             keyPressed?.let { note ->
-                                                activePointers[change.id.value.toLong()] = note
-                                                onKeyPress(note)
-                                                change.consume()
-                                            }
-                                        }
-                                    }
-                                    
-                                    PointerEventType.Move -> {
-                                        event.changes.forEach { change ->
-                                            val pointerId = change.id.value.toLong()
-                                            if (activePointers.containsKey(pointerId)) {
-                                                val adjustedX = change.position.x + scrollState.value
-                                                val adjustedY = change.position.y
-                                                val newKey = getKeyFromPosition(adjustedX, adjustedY, whiteKeyWidth, blackKeyWidth, blackKeyHeight, startNote)
-                                                val oldKey = activePointers[pointerId]
+                                                val currentlyPressed = activePointers[pointerId]
                                                 
-                                                if (newKey != oldKey) {
-                                                    oldKey?.let { onKeyRelease(it) }
-                                                    newKey?.let { 
-                                                        activePointers[pointerId] = it
-                                                        onKeyPress(it)
-                                                    } ?: run {
-                                                        activePointers.remove(pointerId)
+                                                if (currentlyPressed != note) {
+                                                    // Release previously pressed key if different
+                                                    currentlyPressed?.let { oldNote ->
+                                                        onKeyRelease(oldNote)
+                                                        println("🎹 Key released: $oldNote (switch)")
                                                     }
+                                                    
+                                                    // Press new key
+                                                    activePointers[pointerId] = note
+                                                    onKeyPress(note)
+                                                    println("🎹 Key pressed: $note (pointer $pointerId)")
                                                 }
                                                 change.consume()
                                             }
                                         }
-                                    }
-                                    
-                                    PointerEventType.Release -> {
-                                        event.changes.forEach { change ->
-                                            val pointerId = change.id.value.toLong()
-                                            activePointers[pointerId]?.let { note ->
-                                                onKeyRelease(note)
-                                                activePointers.remove(pointerId)
-                                                change.consume()
+                                        
+                                        !change.pressed -> {
+                                            // Touch up - release any key held by this pointer
+                                            val note = activePointers.remove(pointerId)
+                                            note?.let { 
+                                                onKeyRelease(it)
+                                                println("🎹 Key released: $it (up)")
                                             }
+                                            change.consume()
                                         }
                                     }
                                 }
@@ -370,42 +364,72 @@ private fun getKeyFromPosition(
     blackKeyHeight: Float,
     startNote: Int
 ): Int? {
-    // Check if y position is within keyboard bounds
-    if (y < 0) return null
+    // Boundary check
+    if (y < 0 || x < 0) {
+        println("🚫 Touch out of bounds: x=$x, y=$y")
+        return null
+    }
     
-    // First check black keys (they're on top and shorter)
+    // Calculate which white key we're over
+    val whiteKeyIndex = (x / whiteKeyWidth).toInt()
+    
+    // Map white key index to MIDI note
+    val whiteKeyMidiNote = getWhiteKeyMidiNote(whiteKeyIndex, startNote)
+    if (whiteKeyMidiNote == null || whiteKeyMidiNote > 108) {
+        println("🚫 Invalid white key: index=$whiteKeyIndex, midi=$whiteKeyMidiNote")
+        return null
+    }
+    
+    // Check if we're in the black key area (upper part of keyboard)
     if (y <= blackKeyHeight) {
-        var whiteKeyIndex = 0
-        for (midiNote in startNote..108) {
-            if (isWhiteKey(midiNote)) {
-                whiteKeyIndex++
-            } else {
-                // Check if click is on this black key
-                val leftWhiteKeyIndex = getLeftWhiteKeyIndex(midiNote, startNote)
-                val blackKeyLeft = leftWhiteKeyIndex * whiteKeyWidth + whiteKeyWidth - blackKeyWidth / 2
-                val blackKeyRight = blackKeyLeft + blackKeyWidth
-                
-                if (x >= blackKeyLeft && x <= blackKeyRight) {
-                    return midiNote
-                }
+        // Check for black key to the left of this white key
+        val leftBlackKey = getBlackKeyToLeft(whiteKeyMidiNote)
+        if (leftBlackKey != null) {
+            val leftBlackKeyX = (whiteKeyIndex - 1) * whiteKeyWidth + whiteKeyWidth - blackKeyWidth / 2
+            if (x >= leftBlackKeyX && x < leftBlackKeyX + blackKeyWidth) {
+                println("🎹 Black key detected: $leftBlackKey")
+                return leftBlackKey
+            }
+        }
+        
+        // Check for black key to the right of this white key
+        val rightBlackKey = getBlackKeyToRight(whiteKeyMidiNote)
+        if (rightBlackKey != null) {
+            val rightBlackKeyX = whiteKeyIndex * whiteKeyWidth + whiteKeyWidth - blackKeyWidth / 2
+            if (x >= rightBlackKeyX && x < rightBlackKeyX + blackKeyWidth) {
+                println("🎹 Black key detected: $rightBlackKey")
+                return rightBlackKey
             }
         }
     }
     
-    // If not on black key, check white keys
-    val whiteKeyIndexClicked = (x / whiteKeyWidth).toInt()
+    // Default to white key
+    println("🎹 White key detected: $whiteKeyMidiNote")
+    return whiteKeyMidiNote
+}
+
+private fun getWhiteKeyMidiNote(whiteKeyIndex: Int, startNote: Int): Int? {
     var currentWhiteKeyIndex = 0
     
     for (midiNote in startNote..108) {
         if (isWhiteKey(midiNote)) {
-            if (currentWhiteKeyIndex == whiteKeyIndexClicked) {
+            if (currentWhiteKeyIndex == whiteKeyIndex) {
                 return midiNote
             }
             currentWhiteKeyIndex++
         }
     }
-    
     return null
+}
+
+private fun getBlackKeyToLeft(whiteKeyMidiNote: Int): Int? {
+    val leftNote = whiteKeyMidiNote - 1
+    return if (leftNote >= 21 && !isWhiteKey(leftNote)) leftNote else null
+}
+
+private fun getBlackKeyToRight(whiteKeyMidiNote: Int): Int? {
+    val rightNote = whiteKeyMidiNote + 1
+    return if (rightNote <= 108 && !isWhiteKey(rightNote)) rightNote else null
 }
 
 private fun isWhiteKey(midiNote: Int): Boolean {
@@ -424,43 +448,4 @@ private fun getLeftWhiteKeyIndex(midiNote: Int, startNote: Int): Int {
         }
     }
     return whiteKeyCount
-}
-
-private fun getKeyFromPosition(
-    x: Float, 
-    whiteKeyWidth: Float, 
-    blackKeyWidth: Float, 
-    startNote: Int
-): Int? {
-    // First check black keys (they're on top)
-    var whiteKeyIndex = 0
-    for (midiNote in startNote..108) {
-        if (isWhiteKey(midiNote)) {
-            whiteKeyIndex++
-        } else {
-            // Check if click is on this black key
-            val leftWhiteKeyIndex = getLeftWhiteKeyIndex(midiNote, startNote)
-            val blackKeyLeft = leftWhiteKeyIndex * whiteKeyWidth + whiteKeyWidth - blackKeyWidth / 2
-            val blackKeyRight = blackKeyLeft + blackKeyWidth
-            
-            if (x >= blackKeyLeft && x <= blackKeyRight) {
-                return midiNote
-            }
-        }
-    }
-    
-    // If not on black key, check white keys
-    val whiteKeyIndexClicked = (x / whiteKeyWidth).toInt()
-    var currentWhiteKeyIndex = 0
-    
-    for (midiNote in startNote..108) {
-        if (isWhiteKey(midiNote)) {
-            if (currentWhiteKeyIndex == whiteKeyIndexClicked) {
-                return midiNote
-            }
-            currentWhiteKeyIndex++
-        }
-    }
-    
-    return null
 }

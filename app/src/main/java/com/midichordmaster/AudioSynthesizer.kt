@@ -9,13 +9,13 @@ import kotlin.math.*
 
 class AudioSynthesizer {
     
-    // Optimized for low latency
+    // Optimized for low latency - inspired by mgenner-droid
     private val sampleRate = 44100
-    private val bufferSize = (AudioTrack.getMinBufferSize(
+    private val bufferSize = AudioTrack.getMinBufferSize(
         sampleRate,
         AudioFormat.CHANNEL_OUT_MONO,
         AudioFormat.ENCODING_PCM_16BIT
-    ) / 4).coerceAtLeast(512) // Reduced buffer size for lower latency
+    ).coerceAtLeast(1024) // Ensure minimum viable buffer size
     
     private var audioTrack: AudioTrack? = null
     private val activeNotes = mutableMapOf<Int, NoteData>()
@@ -23,6 +23,9 @@ class AudioSynthesizer {
     private var isPlaying = false
     private var isInitialized = false
     private var latencyDebugEnabled = true
+    
+    // Use smaller render buffer like mgenner-droid (128 samples)
+    private val renderBufferSize = 256 // Small buffer for low latency
     
     data class NoteData(
         val frequency: Double,
@@ -103,50 +106,61 @@ class AudioSynthesizer {
     
     private fun startSynthesis() {
         synthesisJob = CoroutineScope(Dispatchers.Default).launch {
-            val buffer = ShortArray(bufferSize / 2) // Smaller buffer for lower latency
+            // Use small buffer like mgenner-droid
+            val buffer = ShortArray(renderBufferSize)
+            
+            println("🎵 Audio synthesis started with buffer size: ${buffer.size}")
             
             while (isActive && isInitialized) {
                 try {
                     val synthesisStart = System.nanoTime()
                     
-                    if (activeNotes.isNotEmpty()) {
-                        generateAudioBuffer(buffer)
-                        audioTrack?.write(buffer, 0, buffer.size)
-                    } else {
-                        // Generate silence when no notes are playing
-                        buffer.fill(0)
-                        audioTrack?.write(buffer, 0, buffer.size)
+                    // Always generate audio to keep the stream flowing
+                    generateAudioBuffer(buffer)
+                    
+                    // Write to AudioTrack
+                    val writeResult = audioTrack?.write(buffer, 0, buffer.size) ?: -1
+                    
+                    if (writeResult < 0) {
+                        println("❌ AudioTrack write failed: $writeResult")
+                        delay(10) // Wait before retrying
+                        continue
                     }
                     
                     if (latencyDebugEnabled && activeNotes.isNotEmpty()) {
                         val synthesisTime = (System.nanoTime() - synthesisStart) / 1_000_000.0
-                        if (synthesisTime > 5.0) { // Only log if synthesis takes more than 5ms
+                        if (synthesisTime > 3.0) { // Only log if synthesis takes more than 3ms
                             println("🎯 Audio synthesis: ${String.format("%.2f", synthesisTime)}ms")
                         }
                     }
                     
-                    delay(1) // Minimal delay for low latency
+                    // No delay - continuous audio streaming like mgenner-droid
                 } catch (e: Exception) {
                     println("❌ Audio synthesis error: ${e.message}")
-                    break
+                    delay(10) // Brief pause before retry
                 }
             }
+            
+            println("🛑 Audio synthesis stopped")
         }
     }
     
     private fun generateAudioBuffer(buffer: ShortArray) {
         val frameTime = 1.0 / sampleRate
         
-        // Clear buffer first
+        // Always clear buffer first
         buffer.fill(0)
         
-        if (activeNotes.isEmpty()) return
+        // Generate audio even if no notes (silence)
+        if (activeNotes.isEmpty()) {
+            return // Silent buffer already filled with zeros
+        }
         
-        // Limit max active notes to prevent memory issues
-        val maxActiveNotes = 8
+        // Limit max active notes to prevent performance issues
+        val maxActiveNotes = 6
         val notesToProcess = if (activeNotes.size > maxActiveNotes) {
             // Keep the most recently added notes
-            activeNotes.entries.sortedByDescending { it.value.envelope }
+            activeNotes.entries.sortedByDescending { it.value.startTime }
                 .take(maxActiveNotes)
                 .associate { it.key to it.value }
         } else {
@@ -156,12 +170,16 @@ class AudioSynthesizer {
         for (i in buffer.indices) {
             var sample = 0.0
             
-            // Mix active notes with volume limiting
+            // Mix active notes
             notesToProcess.values.forEach { note ->
-                val amplitude = (note.velocity / 127.0) * note.envelope * 0.08 // Reduced volume
+                // Simple piano-like envelope
+                val amplitude = (note.velocity / 127.0) * note.envelope * 0.15 // Increased volume
                 
-                // Simpler waveform to reduce CPU usage
-                val waveform = sin(note.phase) + sin(note.phase * 2) * 0.3
+                // Simple sine wave with harmonic for richer sound
+                val fundamental = sin(note.phase)
+                val harmonic = sin(note.phase * 2) * 0.2
+                val waveform = fundamental + harmonic
+                
                 sample += waveform * amplitude
                 
                 // Update phase
@@ -170,25 +188,31 @@ class AudioSynthesizer {
                     note.phase -= 2 * PI
                 }
                 
-                // Faster envelope decay to free memory sooner
-                note.envelope *= 0.9995
+                // Natural envelope decay
+                note.envelope *= 0.9998 // Slower decay for longer sustain
             }
             
             // Soft limiting to prevent clipping
-            sample = sample.coerceIn(-0.8, 0.8)
-            buffer[i] = (sample * Short.MAX_VALUE).toInt().toShort()
+            sample = sample.coerceIn(-0.9, 0.9)
+            buffer[i] = (sample * Short.MAX_VALUE * 0.8).toInt().toShort() // Slightly reduced to prevent distortion
         }
         
         // Remove notes with very low envelope (memory cleanup)
-        activeNotes.entries.removeAll { it.value.envelope < 0.01 }
+        val notesToRemove = activeNotes.entries.filter { it.value.envelope < 0.005 }
+        notesToRemove.forEach { 
+            activeNotes.remove(it.key)
+            if (latencyDebugEnabled) {
+                println("🧹 Removed quiet note ${it.key}")
+            }
+        }
         
         // Emergency cleanup if too many notes
-        if (activeNotes.size > 12) {
-            val notesToRemove = activeNotes.entries
-                .sortedBy { it.value.envelope }
-                .take(activeNotes.size - 8)
-            notesToRemove.forEach { activeNotes.remove(it.key) }
-            println("DEBUG: Emergency note cleanup - removed ${notesToRemove.size} notes")
+        if (activeNotes.size > 10) {
+            val oldestNotes = activeNotes.entries
+                .sortedBy { it.value.startTime }
+                .take(activeNotes.size - 6)
+            oldestNotes.forEach { activeNotes.remove(it.key) }
+            println("⚠️ Emergency cleanup - removed ${oldestNotes.size} oldest notes")
         }
     }
     

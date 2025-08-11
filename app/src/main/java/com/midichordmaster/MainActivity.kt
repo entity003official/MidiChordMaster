@@ -48,6 +48,30 @@ class MainActivity : ComponentActivity() {
     private var isInitialized = mutableStateOf(false)
     private var showDebugScreen = mutableStateOf(true) // 默认显示调试界面
     
+    /**
+     * 安全获取 WindowInsetsController
+     */
+    private fun getWindowInsetsControllerSafely(): WindowInsetsController? {
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                window?.let { w ->
+                    // 尝试多种方式获取 insetsController
+                    w.insetsController ?: 
+                    w.decorView?.let { decorView ->
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                            decorView.windowInsetsController
+                        } else null
+                    }
+                }
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            debugLog("❌ 获取WindowInsetsController失败: ${e.message}")
+            null
+        }
+    }
+    
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -98,32 +122,72 @@ class MainActivity : ComponentActivity() {
         try {
             debugLog("开始设置全屏显示...")
             
-            // Enable edge-to-edge display
-            WindowCompat.setDecorFitsSystemWindows(window, false)
-            
-            // Hide system bars for immersive experience
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                window.insetsController?.let { controller ->
-                    controller.hide(WindowInsets.Type.systemBars())
-                    controller.systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-                }
-                debugLog("✅ 使用Android 11+全屏API")
-            } else {
-                @Suppress("DEPRECATION")
-                window.decorView.systemUiVisibility = (
-                    View.SYSTEM_UI_FLAG_FULLSCREEN
-                    or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                    or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-                    or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                    or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                    or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                )
-                debugLog("✅ 使用传统全屏API")
+            // Enable edge-to-edge display with safe check
+            try {
+                WindowCompat.setDecorFitsSystemWindows(window, false)
+                debugLog("✅ WindowCompat设置成功")
+            } catch (e: Exception) {
+                debugLog("❌ WindowCompat设置失败: ${e.message}")
             }
             
-            // Keep screen on during use
-            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-            debugLog("✅ 设置屏幕常亮")
+            // Hide system bars for immersive experience with enhanced null checks
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                try {
+                    val insetsController = getWindowInsetsControllerSafely()
+                    if (insetsController != null) {
+                        insetsController.hide(WindowInsets.Type.systemBars())
+                        insetsController.systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                        debugLog("✅ 使用Android 11+全屏API成功")
+                    } else {
+                        debugLog("⚠️ insetsController为null，使用备用方案")
+                        // Fallback to legacy method
+                        @Suppress("DEPRECATION")
+                        window.decorView.systemUiVisibility = (
+                            View.SYSTEM_UI_FLAG_FULLSCREEN
+                            or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                            or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                        )
+                        debugLog("✅ 使用备用全屏API成功")
+                    }
+                } catch (e: Exception) {
+                    debugLog("❌ Android 11+全屏API错误: ${e.message}")
+                    // Fallback to legacy method
+                    try {
+                        @Suppress("DEPRECATION")
+                        window.decorView.systemUiVisibility = (
+                            View.SYSTEM_UI_FLAG_FULLSCREEN
+                            or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                            or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                        )
+                        debugLog("✅ 备用全屏API成功")
+                    } catch (e2: Exception) {
+                        debugLog("❌ 备用全屏API也失败: ${e2.message}")
+                    }
+                }
+            } else {
+                try {
+                    @Suppress("DEPRECATION")
+                    window.decorView.systemUiVisibility = (
+                        View.SYSTEM_UI_FLAG_FULLSCREEN
+                        or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                        or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                        or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                        or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                        or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                    )
+                    debugLog("✅ 使用传统全屏API成功")
+                } catch (e: Exception) {
+                    debugLog("❌ 传统全屏API错误: ${e.message}")
+                }
+            }
+            
+            // Keep screen on during use with safe check
+            try {
+                window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                debugLog("✅ 设置屏幕常亮成功")
+            } catch (e: Exception) {
+                debugLog("❌ 设置屏幕常亮失败: ${e.message}")
+            }
             
             debugLog("开始设置UI...")
             
